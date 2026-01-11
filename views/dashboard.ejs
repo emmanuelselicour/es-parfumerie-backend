@@ -11,7 +11,15 @@
         .sidebar { min-height: 100vh; }
         .sidebar a:hover { background-color: rgba(255,255,255,0.1); }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-        .modal-content { background: white; margin: 5% auto; padding: 20px; border-radius: 10px; width: 90%; max-width: 800px; }
+        .modal-content { background: white; margin: 5% auto; padding: 20px; border-radius: 10px; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto; }
+        .notification { position: fixed; top: 20px; right: 20px; z-index: 10000; padding: 15px 20px; border-radius: 8px; color: white; animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+        .notification-success { background: #4CAF50; }
+        .notification-error { background: #ff4757; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .image-preview { width: 100px; height: 100px; object-fit: cover; border-radius: 8px; margin-top: 10px; }
+        .current-image { width: 100px; height: 100px; object-fit: cover; border-radius: 8px; }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -146,28 +154,28 @@
         <div class="modal-content">
             <span class="close float-right text-2xl cursor-pointer" onclick="closeModal()">&times;</span>
             <h2 class="text-2xl font-bold mb-6" id="modal-title">Ajouter un produit</h2>
-            <form id="productForm" onsubmit="saveProduct(event)">
+            <form id="productForm" onsubmit="saveProduct(event)" enctype="multipart/form-data">
                 <input type="hidden" id="productId">
                 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Nom du produit *</label>
-                        <input type="text" id="productName" required class="w-full px-4 py-2 border rounded-lg">
+                        <input type="text" id="productName" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
                     </div>
                     
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Prix (€) *</label>
-                        <input type="number" id="productPrice" step="0.01" required class="w-full px-4 py-2 border rounded-lg">
+                        <input type="number" id="productPrice" step="0.01" min="0" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
                     </div>
                     
                     <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                        <textarea id="productDescription" rows="3" class="w-full px-4 py-2 border rounded-lg"></textarea>
+                        <textarea id="productDescription" rows="3" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"></textarea>
                     </div>
                     
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
-                        <select id="productCategory" class="w-full px-4 py-2 border rounded-lg">
+                        <select id="productCategory" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
                             <option value="">Sélectionner</option>
                             <option value="homme">Homme</option>
                             <option value="femme">Femme</option>
@@ -177,26 +185,31 @@
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Stock</label>
-                        <input type="number" id="productStock" class="w-full px-4 py-2 border rounded-lg" value="0">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Stock *</label>
+                        <input type="number" id="productStock" min="0" value="0" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent">
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Image</label>
-                        <input type="file" id="productImage" accept="image/*" class="w-full px-4 py-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Image du produit</label>
+                        <input type="file" id="productImage" accept="image/*" class="w-full px-4 py-2 border rounded-lg" onchange="previewImage(event)">
                         <div id="imagePreview" class="mt-2"></div>
+                        <div id="currentImage" class="mt-2"></div>
+                        <p class="text-xs text-gray-500 mt-1">Formats acceptés: JPEG, JPG, PNG, GIF, WebP (max 10MB)</p>
                     </div>
                     
                     <div class="flex items-center mt-4">
-                        <input type="checkbox" id="productFeatured" class="h-4 w-4">
+                        <input type="checkbox" id="productFeatured" class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
                         <label class="ml-2 text-sm text-gray-700">Mettre en vedette</label>
                     </div>
                 </div>
                 
                 <div class="mt-8 flex justify-end space-x-4">
-                    <button type="button" onclick="closeModal()" class="px-6 py-2 border rounded-lg">Annuler</button>
-                    <button type="submit" class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
-                        Enregistrer
+                    <button type="button" onclick="closeModal()" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Annuler</button>
+                    <button type="submit" id="saveBtn" class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                        <span id="saveBtnText">Enregistrer</span>
+                        <span id="saveBtnLoader" class="hidden ml-2">
+                            <i class="fas fa-spinner fa-spin"></i>
+                        </span>
                     </button>
                 </div>
             </form>
@@ -208,6 +221,41 @@
         let currentView = 'dashboard';
         let products = [];
 
+        // Fonction pour obtenir l'URL de l'image
+        function getImageUrl(product) {
+            if (!product.image) {
+                return 'https://via.placeholder.com/150';
+            }
+            
+            if (product.image.startsWith('http')) {
+                return product.image;
+            }
+            
+            if (product.image.startsWith('/uploads/')) {
+                return `${API_URL}${product.image}`;
+            }
+            
+            return `${API_URL}/uploads/${product.image}`;
+        }
+
+        // Prévisualisation d'image
+        function previewImage(event) {
+            const input = event.target;
+            const preview = document.getElementById('imagePreview');
+            preview.innerHTML = '';
+            
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.className = 'image-preview';
+                    preview.appendChild(img);
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
         // Charger les statistiques du dashboard
         async function loadDashboardStats() {
             try {
@@ -215,51 +263,58 @@
                 products = await productsRes.json();
                 
                 document.getElementById('products-count').textContent = products.length;
-                document.getElementById('featured-count').textContent = products.filter(p => p.featured).length;
+                const featuredCount = products.filter(p => p.featured === true || p.featured === 1).length;
+                document.getElementById('featured-count').textContent = featuredCount;
 
                 // Afficher les 5 produits les plus récents
                 const recentProducts = products.slice(0, 5);
                 const tbody = document.getElementById('recent-products-body');
-                tbody.innerHTML = recentProducts.map(product => `
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                <div class="flex-shrink-0 h-10 w-10">
-                                    <img class="h-10 w-10 rounded-full object-cover" 
-                                         src="${product.image || 'https://via.placeholder.com/150'}" 
-                                         alt="${product.name}">
+                tbody.innerHTML = recentProducts.map(product => {
+                    const imageUrl = getImageUrl(product);
+                    const stock = product.stock || 0;
+                    
+                    return `
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10">
+                                        <img class="h-10 w-10 rounded-full object-cover" 
+                                             src="${imageUrl}" 
+                                             alt="${product.name}"
+                                             onerror="this.src='https://via.placeholder.com/150'">
+                                    </div>
+                                    <div class="ml-4">
+                                        <div class="text-sm font-medium text-gray-900">${product.name}</div>
+                                        <div class="text-sm text-gray-500">${product.category || 'Non catégorisé'}</div>
+                                    </div>
                                 </div>
-                                <div class="ml-4">
-                                    <div class="text-sm font-medium text-gray-900">${product.name}</div>
-                                    <div class="text-sm text-gray-500">${product.category || 'Non catégorisé'}</div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">${product.price}€</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${product.stock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                                ${product.stock} en stock
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${new Date(product.created_at).toLocaleDateString('fr-FR')}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button onclick="editProduct(${product.id})" class="text-blue-600 hover:text-blue-900 mr-3">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button onclick="deleteProduct(${product.id})" class="text-red-600 hover:text-red-900">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `).join('');
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">${product.price || 0}€</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${stock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                    ${stock} en stock
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${new Date(product.created_at).toLocaleDateString('fr-FR')}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button onclick="editProduct(${product.id})" class="text-blue-600 hover:text-blue-900 mr-3">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteProduct(${product.id})" class="text-red-600 hover:text-red-900">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
 
             } catch (error) {
                 console.error('Erreur de chargement:', error);
-                showError('Erreur de chargement des données');
+                showNotification('Erreur de chargement des données', 'error');
             }
         }
 
@@ -276,80 +331,87 @@
                     <div class="mb-8">
                         <div class="flex justify-between items-center mb-6">
                             <h3 class="text-2xl font-bold">Produits (${products.length})</h3>
-                            <button onclick="showAddProductModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
+                            <button onclick="showAddProductModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center">
                                 <i class="fas fa-plus mr-2"></i>Ajouter un produit
                             </button>
                         </div>
                         
                         <div class="bg-white rounded-lg shadow overflow-hidden">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
-                                    ${products.length === 0 ? `
+                            ${products.length === 0 ? `
+                                <div class="text-center py-12 px-6">
+                                    <i class="fas fa-cube text-4xl mb-4 text-gray-300"></i>
+                                    <p class="text-lg text-gray-600">Aucun produit</p>
+                                    <p class="text-sm text-gray-500 mt-2">Commencez par ajouter votre premier produit</p>
+                                    <button onclick="showAddProductModal()" class="mt-4 bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700">
+                                        <i class="fas fa-plus mr-2"></i>Ajouter un produit
+                                    </button>
+                                </div>
+                            ` : `
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
                                         <tr>
-                                            <td colspan="6" class="px-6 py-12 text-center text-gray-500">
-                                                <i class="fas fa-cube text-4xl mb-4 text-gray-300"></i>
-                                                <p class="text-lg">Aucun produit</p>
-                                                <p class="text-sm mt-2">Commencez par ajouter votre premier produit</p>
-                                                <button onclick="showAddProductModal()" class="mt-4 bg-purple-600 text-white px-4 py-2 rounded-lg">
-                                                    Ajouter un produit
-                                                </button>
-                                            </td>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                         </tr>
-                                    ` : products.map(product => `
-                                        <tr>
-                                            <td class="px-6 py-4">
-                                                <div class="flex items-center">
-                                                    <div class="flex-shrink-0 h-12 w-12">
-                                                        <img class="h-12 w-12 rounded object-cover" 
-                                                             src="${product.image || 'https://via.placeholder.com/150'}" 
-                                                             alt="${product.name}">
-                                                    </div>
-                                                    <div class="ml-4">
-                                                        <div class="text-sm font-medium text-gray-900">${product.name}</div>
-                                                        <div class="text-sm text-gray-500 truncate max-w-xs">${product.description || 'Pas de description'}</div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <div class="text-sm text-gray-900 font-bold">${product.price}€</div>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                                    ${product.category || 'Non catégorisé'}
-                                                </span>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${product.stock > 10 ? 'bg-green-100 text-green-800' : product.stock > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
-                                                    ${product.stock} unités
-                                                </span>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap">
-                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${product.featured ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}">
-                                                    ${product.featured ? 'En vedette' : 'Standard'}
-                                                </span>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                <button onclick="editProduct(${product.id})" class="text-blue-600 hover:text-blue-900 mr-3" title="Modifier">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button onclick="deleteProduct(${product.id})" class="text-red-600 hover:text-red-900" title="Supprimer">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        ${products.map(product => {
+                                            const imageUrl = getImageUrl(product);
+                                            const stock = product.stock || 0;
+                                            const featured = product.featured === true || product.featured === 1;
+                                            
+                                            return `
+                                                <tr>
+                                                    <td class="px-6 py-4">
+                                                        <div class="flex items-center">
+                                                            <div class="flex-shrink-0 h-12 w-12">
+                                                                <img class="h-12 w-12 rounded object-cover" 
+                                                                     src="${imageUrl}" 
+                                                                     alt="${product.name}"
+                                                                     onerror="this.src='https://via.placeholder.com/150'">
+                                                            </div>
+                                                            <div class="ml-4">
+                                                                <div class="text-sm font-medium text-gray-900">${product.name}</div>
+                                                                <div class="text-sm text-gray-500 truncate max-w-xs">${product.description || 'Pas de description'}</div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap">
+                                                        <div class="text-sm text-gray-900 font-bold">${product.price || 0}€</div>
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap">
+                                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                            ${product.category || 'Non catégorisé'}
+                                                        </span>
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap">
+                                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${stock > 10 ? 'bg-green-100 text-green-800' : stock > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
+                                                            ${stock} unités
+                                                        </span>
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap">
+                                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${featured ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}">
+                                                            ${featured ? 'En vedette' : 'Standard'}
+                                                        </span>
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                        <button onclick="editProduct(${product.id})" class="text-blue-600 hover:text-blue-900 mr-3" title="Modifier">
+                                                            <i class="fas fa-edit"></i>
+                                                        </button>
+                                                        <button onclick="deleteProduct(${product.id})" class="text-red-600 hover:text-red-900" title="Supprimer">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            `}
                         </div>
                     </div>
                 `;
@@ -406,11 +468,11 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Nouveau mot de passe</label>
-                                <input type="password" id="newPassword" required class="w-full px-4 py-2 border rounded-lg">
+                                <input type="password" id="newPassword" required minlength="6" class="w-full px-4 py-2 border rounded-lg">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Confirmer le nouveau mot de passe</label>
-                                <input type="password" id="confirmPassword" required class="w-full px-4 py-2 border rounded-lg">
+                                <input type="password" id="confirmPassword" required minlength="6" class="w-full px-4 py-2 border rounded-lg">
                             </div>
                             <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700">
                                 Changer le mot de passe
@@ -437,7 +499,9 @@
             document.getElementById('modal-title').textContent = 'Ajouter un produit';
             document.getElementById('productForm').reset();
             document.getElementById('productId').value = '';
+            document.getElementById('productStock').value = '0';
             document.getElementById('imagePreview').innerHTML = '';
+            document.getElementById('currentImage').innerHTML = '';
             document.getElementById('productModal').style.display = 'block';
         }
 
@@ -453,17 +517,25 @@
             document.getElementById('modal-title').textContent = 'Modifier le produit';
             document.getElementById('productId').value = product.id;
             document.getElementById('productName').value = product.name;
-            document.getElementById('productPrice').value = product.price;
+            document.getElementById('productPrice').value = product.price || 0;
             document.getElementById('productDescription').value = product.description || '';
             document.getElementById('productCategory').value = product.category || '';
             document.getElementById('productStock').value = product.stock || 0;
-            document.getElementById('productFeatured').checked = product.featured == 1;
+            document.getElementById('productFeatured').checked = product.featured === true || product.featured === 1;
+            
+            // Afficher l'image actuelle
+            const currentImageDiv = document.getElementById('currentImage');
+            const imagePreviewDiv = document.getElementById('imagePreview');
+            imagePreviewDiv.innerHTML = '';
             
             if (product.image) {
-                document.getElementById('imagePreview').innerHTML = `
-                    <img src="${product.image}" class="h-20 w-20 object-cover rounded">
-                    <p class="text-xs text-gray-500 mt-1">Image actuelle</p>
+                const imageUrl = getImageUrl(product);
+                currentImageDiv.innerHTML = `
+                    <p class="text-sm text-gray-600 mb-2">Image actuelle:</p>
+                    <img src="${imageUrl}" class="current-image" onerror="this.style.display='none'">
                 `;
+            } else {
+                currentImageDiv.innerHTML = '';
             }
             
             document.getElementById('productModal').style.display = 'block';
@@ -473,24 +545,33 @@
         async function saveProduct(event) {
             event.preventDefault();
             
-            const formData = new FormData();
-            formData.append('name', document.getElementById('productName').value);
-            formData.append('price', document.getElementById('productPrice').value);
-            formData.append('description', document.getElementById('productDescription').value);
-            formData.append('category', document.getElementById('productCategory').value);
-            formData.append('stock', document.getElementById('productStock').value);
-            formData.append('featured', document.getElementById('productFeatured').checked);
+            const saveBtn = document.getElementById('saveBtn');
+            const saveBtnText = document.getElementById('saveBtnText');
+            const saveBtnLoader = document.getElementById('saveBtnLoader');
             
-            const imageFile = document.getElementById('productImage').files[0];
-            if (imageFile) {
-                formData.append('image', imageFile);
-            }
-            
-            const productId = document.getElementById('productId').value;
-            const method = productId ? 'PUT' : 'POST';
-            const url = productId ? `${API_URL}/api/products/${productId}` : `${API_URL}/api/products`;
+            // Désactiver le bouton et afficher le loader
+            saveBtn.disabled = true;
+            saveBtnText.textContent = 'Enregistrement...';
+            saveBtnLoader.classList.remove('hidden');
             
             try {
+                const formData = new FormData();
+                formData.append('name', document.getElementById('productName').value);
+                formData.append('price', document.getElementById('productPrice').value);
+                formData.append('description', document.getElementById('productDescription').value);
+                formData.append('category', document.getElementById('productCategory').value);
+                formData.append('stock', document.getElementById('productStock').value);
+                formData.append('featured', document.getElementById('productFeatured').checked);
+                
+                const imageFile = document.getElementById('productImage').files[0];
+                if (imageFile) {
+                    formData.append('image', imageFile);
+                }
+                
+                const productId = document.getElementById('productId').value;
+                const method = productId ? 'PUT' : 'POST';
+                const url = productId ? `${API_URL}/api/products/${productId}` : `${API_URL}/api/products`;
+                
                 const response = await fetch(url, {
                     method: method,
                     body: formData,
@@ -499,7 +580,7 @@
                 
                 if (response.ok) {
                     closeModal();
-                    showSuccess(productId ? 'Produit mis à jour' : 'Produit ajouté');
+                    showNotification(productId ? 'Produit mis à jour avec succès' : 'Produit ajouté avec succès', 'success');
                     
                     // Recharger la vue actuelle
                     if (currentView === 'products') {
@@ -509,17 +590,22 @@
                     }
                 } else {
                     const error = await response.json();
-                    showError(error.error || 'Erreur lors de la sauvegarde');
+                    showNotification(error.error || 'Erreur lors de la sauvegarde', 'error');
                 }
             } catch (error) {
                 console.error('Erreur:', error);
-                showError('Erreur de connexion');
+                showNotification('Erreur de connexion au serveur', 'error');
+            } finally {
+                // Réactiver le bouton
+                saveBtn.disabled = false;
+                saveBtnText.textContent = 'Enregistrer';
+                saveBtnLoader.classList.add('hidden');
             }
         }
 
         // Supprimer un produit
         async function deleteProduct(id) {
-            if (!confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) return;
+            if (!confirm('Êtes-vous sûr de vouloir supprimer ce produit ? Cette action est irréversible.')) return;
             
             try {
                 const response = await fetch(`${API_URL}/api/products/${id}`, {
@@ -528,7 +614,7 @@
                 });
                 
                 if (response.ok) {
-                    showSuccess('Produit supprimé');
+                    showNotification('Produit supprimé avec succès', 'success');
                     
                     // Recharger la vue actuelle
                     if (currentView === 'products') {
@@ -538,11 +624,11 @@
                     }
                 } else {
                     const error = await response.json();
-                    showError(error.error || 'Erreur lors de la suppression');
+                    showNotification(error.error || 'Erreur lors de la suppression', 'error');
                 }
             } catch (error) {
                 console.error('Erreur:', error);
-                showError('Erreur de connexion');
+                showNotification('Erreur de connexion au serveur', 'error');
             }
         }
 
@@ -555,7 +641,12 @@
             const confirmPassword = document.getElementById('confirmPassword').value;
             
             if (newPassword !== confirmPassword) {
-                showError('Les mots de passe ne correspondent pas');
+                showNotification('Les mots de passe ne correspondent pas', 'error');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                showNotification('Le mot de passe doit faire au moins 6 caractères', 'error');
                 return;
             }
             
@@ -573,17 +664,17 @@
                 });
                 
                 if (response.ok) {
-                    showSuccess('Mot de passe changé avec succès');
+                    showNotification('Mot de passe changé avec succès', 'success');
                     document.getElementById('currentPassword').value = '';
                     document.getElementById('newPassword').value = '';
                     document.getElementById('confirmPassword').value = '';
                 } else {
                     const error = await response.json();
-                    showError(error.error || 'Erreur lors du changement de mot de passe');
+                    showNotification(error.error || 'Erreur lors du changement de mot de passe', 'error');
                 }
             } catch (error) {
                 console.error('Erreur:', error);
-                showError('Erreur de connexion');
+                showNotification('Erreur de connexion au serveur', 'error');
             }
         }
 
@@ -602,28 +693,20 @@
         }
 
         // Notifications
-        function showSuccess(message) {
-            showNotification(message, 'green');
-        }
-
-        function showError(message) {
-            showNotification(message, 'red');
-        }
-
-        function showNotification(message, color) {
+        function showNotification(message, type = 'success') {
             const notification = document.createElement('div');
-            notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white z-50 ${color === 'green' ? 'bg-green-500' : 'bg-red-500'}`;
+            notification.className = `notification notification-${type}`;
             notification.innerHTML = `
-                <div class="flex items-center">
-                    <i class="fas fa-${color === 'green' ? 'check' : 'exclamation'} mr-2"></i>
-                    <span>${message}</span>
-                </div>
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} mr-2"></i>
+                <span>${message}</span>
             `;
             
             document.body.appendChild(notification);
             
             setTimeout(() => {
-                notification.remove();
+                if (notification.parentNode) {
+                    notification.remove();
+                }
             }, 3000);
         }
 
