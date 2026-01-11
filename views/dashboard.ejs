@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Admin - ES Parfumerie</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .sidebar { min-height: 100vh; }
+        .sidebar a:hover { background-color: rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex">
+        <!-- Sidebar -->
+        <div class="sidebar bg-purple-800 text-white w-64">
+            <div class="p-6">
+                <h1 class="text-2xl font-bold">ES Parfumerie</h1>
+                <p class="text-sm text-purple-200 mt-1">Panel Administrateur</p>
+            </div>
+            <nav class="mt-8">
+                <a href="/admin" class="block py-3 px-6 hover:bg-purple-700">
+                    <i class="fas fa-chart-bar mr-3"></i> Tableau de bord
+                </a>
+                <a href="/admin/products" class="block py-3 px-6 hover:bg-purple-700">
+                    <i class="fas fa-cube mr-3"></i> Produits
+                </a>
+                <a href="/admin/orders" class="block py-3 px-6 hover:bg-purple-700">
+                    <i class="fas fa-shopping-cart mr-3"></i> Commandes
+                </a>
+                <a href="/admin/settings" class="block py-3 px-6 hover:bg-purple-700">
+                    <i class="fas fa-cog mr-3"></i> Paramètres
+                </a>
+                <button onclick="logout()" class="w-full text-left block py-3 px-6 hover:bg-purple-700 mt-8">
+                    <i class="fas fa-sign-out-alt mr-3"></i> Déconnexion
+                </button>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 p-8">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-bold text-gray-800">Tableau de bord</h2>
+                <div class="text-gray-600">
+                    Connecté en tant que <span class="font-semibold"><%= user.username %></span>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="bg-blue-100 p-3 rounded-lg">
+                            <i class="fas fa-cube text-blue-600 text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-gray-500 text-sm">Produits</h3>
+                            <p id="products-count" class="text-2xl font-bold">Chargement...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="bg-green-100 p-3 rounded-lg">
+                            <i class="fas fa-shopping-cart text-green-600 text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-gray-500 text-sm">Commandes</h3>
+                            <p id="orders-count" class="text-2xl font-bold">Chargement...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="bg-purple-100 p-3 rounded-lg">
+                            <i class="fas fa-star text-purple-600 text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-gray-500 text-sm">Produits en vedette</h3>
+                            <p id="featured-count" class="text-2xl font-bold">Chargement...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Products -->
+            <div class="bg-white rounded-lg shadow p-6 mb-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-semibold">Produits récents</h3>
+                    <a href="/admin/products" class="text-purple-600 hover:text-purple-800">
+                        Voir tous →
+                    </a>
+                </div>
+                <div id="recent-products" class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead>
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-products-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Les produits seront chargés ici -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-xl font-semibold mb-6">Actions rapides</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <a href="/admin/products/new" class="bg-purple-600 text-white rounded-lg p-4 text-center hover:bg-purple-700 transition">
+                        <i class="fas fa-plus text-2xl mb-2"></i>
+                        <p>Ajouter un produit</p>
+                    </a>
+                    <a href="/admin/orders" class="bg-blue-600 text-white rounded-lg p-4 text-center hover:bg-blue-700 transition">
+                        <i class="fas fa-eye text-2xl mb-2"></i>
+                        <p>Voir les commandes</p>
+                    </a>
+                    <a href="/admin/settings" class="bg-green-600 text-white rounded-lg p-4 text-center hover:bg-green-700 transition">
+                        <i class="fas fa-cog text-2xl mb-2"></i>
+                        <p>Paramètres</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.origin + '/api';
+
+        async function loadDashboardStats() {
+            try {
+                // Charger les statistiques
+                const productsRes = await fetch(`${API_URL}/products`);
+                const products = await productsRes.json();
+                
+                document.getElementById('products-count').textContent = products.length;
+                document.getElementById('featured-count').textContent = products.filter(p => p.featured).length;
+
+                // Charger les produits récents
+                const recentProducts = products.slice(0, 5);
+                const tbody = document.getElementById('recent-products-body');
+                tbody.innerHTML = recentProducts.map(product => `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10">
+                                    <img class="h-10 w-10 rounded-full object-cover" 
+                                         src="${product.image || 'https://via.placeholder.com/150'}" 
+                                         alt="${product.name}">
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">${product.name}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">${product.price}€</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${product.stock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                ${product.stock} en stock
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${new Date(product.created_at).toLocaleDateString('fr-FR')}
+                        </td>
+                    </tr>
+                `).join('');
+
+            } catch (error) {
+                console.error('Erreur de chargement:', error);
+            }
+        }
+
+        async function logout() {
+            try {
+                const response = await fetch(`${API_URL}/auth/logout`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                window.location.href = '/admin/login';
+            } catch (error) {
+                console.error('Erreur de déconnexion:', error);
+            }
+        }
+
+        // Charger les données au démarrage
+        document.addEventListener('DOMContentLoaded', loadDashboardStats);
+    </script>
+</body>
+</html>
