@@ -1,6 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
 const path = require('path');
+const fs = require('fs');
 
 // Chemin vers la base de données
 const dbPath = path.join(__dirname, 'database.sqlite');
@@ -30,7 +31,9 @@ async function initializeDatabase() {
                 featured BOOLEAN DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )`);
+            )`, (err) => {
+                if (err) console.error('Erreur création table products:', err);
+            });
 
             // Table des administrateurs
             db.run(`CREATE TABLE IF NOT EXISTS admins (
@@ -39,9 +42,11 @@ async function initializeDatabase() {
                 password TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )`);
+            )`, (err) => {
+                if (err) console.error('Erreur création table admins:', err);
+            });
 
-            // Table des commandes (pour plus tard)
+            // Table des commandes
             db.run(`CREATE TABLE IF NOT EXISTS orders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 customer_name TEXT,
@@ -50,7 +55,9 @@ async function initializeDatabase() {
                 total_amount REAL,
                 status TEXT DEFAULT 'pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )`);
+            )`, (err) => {
+                if (err) console.error('Erreur création table orders:', err);
+            });
 
             // Table des items de commande
             db.run(`CREATE TABLE IF NOT EXISTS order_items (
@@ -62,34 +69,31 @@ async function initializeDatabase() {
                 price REAL,
                 FOREIGN KEY (order_id) REFERENCES orders(id),
                 FOREIGN KEY (product_id) REFERENCES products(id)
-            )`);
-
-            // Créer un admin par défaut (à changer après la première connexion)
-            const defaultAdmin = {
-                username: 'admin',
-                email: 'admin@esparfumerie.com',
-                password: 'admin123' // À changer immédiatement !
-            };
+            )`, (err) => {
+                if (err) console.error('Erreur création table order_items:', err);
+            });
 
             // Vérifier si un admin existe déjà
-            db.get('SELECT id FROM admins WHERE username = ?', [defaultAdmin.username], (err, row) => {
+            db.get('SELECT id FROM admins WHERE username = ?', ['admin'], async (err, row) => {
+                if (err) {
+                    console.error('Erreur vérification admin:', err);
+                    reject(err);
+                    return;
+                }
+                
                 if (!row) {
-                    bcrypt.hash(defaultAdmin.password, 10, (err, hash) => {
-                        if (err) {
-                            console.error('Erreur de hash:', err);
-                            reject(err);
-                            return;
-                        }
+                    try {
+                        const hashedPassword = await bcrypt.hash('admin123', 10);
                         
                         db.run(
                             'INSERT INTO admins (username, email, password) VALUES (?, ?, ?)',
-                            [defaultAdmin.username, defaultAdmin.email, hash],
+                            ['admin', 'admin@esparfumerie.com', hashedPassword],
                             (err) => {
                                 if (err) {
-                                    console.error('Erreur de création admin:', err);
+                                    console.error('Erreur création admin:', err);
                                     reject(err);
                                 } else {
-                                    console.log('👑 Admin par défaut créé:');
+                                    console.log('✅ Admin par défaut créé');
                                     console.log('   Username: admin');
                                     console.log('   Password: admin123');
                                     console.log('⚠️  CHANGEZ CES IDENTIFIANTS IMMÉDIATEMENT !');
@@ -97,7 +101,10 @@ async function initializeDatabase() {
                                 }
                             }
                         );
-                    });
+                    } catch (hashError) {
+                        console.error('Erreur de hash:', hashError);
+                        reject(hashError);
+                    }
                 } else {
                     console.log('✅ Base de données initialisée');
                     resolve();
