@@ -10,6 +10,8 @@
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .sidebar { min-height: 100vh; }
         .sidebar a:hover { background-color: rgba(255,255,255,0.1); }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 5% auto; padding: 20px; border-radius: 10px; width: 90%; max-width: 800px; }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -24,13 +26,13 @@
                 <a href="/admin" class="block py-3 px-6 hover:bg-purple-700">
                     <i class="fas fa-chart-bar mr-3"></i> Tableau de bord
                 </a>
-                <a href="/admin/products" class="block py-3 px-6 hover:bg-purple-700">
+                <a href="#" onclick="loadProducts()" class="block py-3 px-6 hover:bg-purple-700">
                     <i class="fas fa-cube mr-3"></i> Produits
                 </a>
-                <a href="/admin/orders" class="block py-3 px-6 hover:bg-purple-700">
+                <a href="#" onclick="loadOrders()" class="block py-3 px-6 hover:bg-purple-700">
                     <i class="fas fa-shopping-cart mr-3"></i> Commandes
                 </a>
-                <a href="/admin/settings" class="block py-3 px-6 hover:bg-purple-700">
+                <a href="#" onclick="loadSettings()" class="block py-3 px-6 hover:bg-purple-700">
                     <i class="fas fa-cog mr-3"></i> Paramètres
                 </a>
                 <button onclick="logout()" class="w-full text-left block py-3 px-6 hover:bg-purple-700 mt-8">
@@ -41,109 +43,181 @@
 
         <!-- Main Content -->
         <div class="flex-1 p-8">
+            <!-- Header -->
             <div class="flex justify-between items-center mb-8">
-                <h2 class="text-3xl font-bold text-gray-800">Tableau de bord</h2>
+                <h2 class="text-3xl font-bold text-gray-800" id="page-title">Tableau de bord</h2>
                 <div class="text-gray-600">
                     Connecté en tant que <span class="font-semibold"><%= user.username %></span>
                 </div>
             </div>
 
-            <!-- Stats Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="bg-blue-100 p-3 rounded-lg">
-                            <i class="fas fa-cube text-blue-600 text-xl"></i>
+            <!-- Dynamic Content Area -->
+            <div id="content-area">
+                <!-- Dashboard Stats (Default) -->
+                <div id="dashboard-content">
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="bg-blue-100 p-3 rounded-lg">
+                                    <i class="fas fa-cube text-blue-600 text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <h3 class="text-gray-500 text-sm">Produits</h3>
+                                    <p id="products-count" class="text-2xl font-bold">Chargement...</p>
+                                </div>
+                            </div>
                         </div>
-                        <div class="ml-4">
-                            <h3 class="text-gray-500 text-sm">Produits</h3>
-                            <p id="products-count" class="text-2xl font-bold">Chargement...</p>
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="bg-green-100 p-3 rounded-lg">
+                                    <i class="fas fa-shopping-cart text-green-600 text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <h3 class="text-gray-500 text-sm">Commandes</h3>
+                                    <p id="orders-count" class="text-2xl font-bold">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <div class="flex items-center">
+                                <div class="bg-purple-100 p-3 rounded-lg">
+                                    <i class="fas fa-star text-purple-600 text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <h3 class="text-gray-500 text-sm">Produits en vedette</h3>
+                                    <p id="featured-count" class="text-2xl font-bold">Chargement...</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="bg-green-100 p-3 rounded-lg">
-                            <i class="fas fa-shopping-cart text-green-600 text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <h3 class="text-gray-500 text-sm">Commandes</h3>
-                            <p id="orders-count" class="text-2xl font-bold">Chargement...</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center">
-                        <div class="bg-purple-100 p-3 rounded-lg">
-                            <i class="fas fa-star text-purple-600 text-xl"></i>
-                        </div>
-                        <div class="ml-4">
-                            <h3 class="text-gray-500 text-sm">Produits en vedette</h3>
-                            <p id="featured-count" class="text-2xl font-bold">Chargement...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Recent Products -->
-            <div class="bg-white rounded-lg shadow p-6 mb-8">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-xl font-semibold">Produits récents</h3>
-                    <a href="/admin/products" class="text-purple-600 hover:text-purple-800">
-                        Voir tous →
-                    </a>
-                </div>
-                <div id="recent-products" class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead>
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                            </tr>
-                        </thead>
-                        <tbody id="recent-products-body" class="bg-white divide-y divide-gray-200">
-                            <!-- Les produits seront chargés ici -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                    <!-- Recent Products -->
+                    <div class="bg-white rounded-lg shadow p-6 mb-8">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-semibold">Produits récents</h3>
+                            <button onclick="loadProducts()" class="text-purple-600 hover:text-purple-800 font-medium">
+                                Gérer les produits →
+                            </button>
+                        </div>
+                        <div id="recent-products">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead>
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-products-body" class="bg-white divide-y divide-gray-200">
+                                    <!-- Les produits seront chargés ici -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
-            <!-- Quick Actions -->
-            <div class="bg-white rounded-lg shadow p-6">
-                <h3 class="text-xl font-semibold mb-6">Actions rapides</h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <a href="/admin/products/new" class="bg-purple-600 text-white rounded-lg p-4 text-center hover:bg-purple-700 transition">
-                        <i class="fas fa-plus text-2xl mb-2"></i>
-                        <p>Ajouter un produit</p>
-                    </a>
-                    <a href="/admin/orders" class="bg-blue-600 text-white rounded-lg p-4 text-center hover:bg-blue-700 transition">
-                        <i class="fas fa-eye text-2xl mb-2"></i>
-                        <p>Voir les commandes</p>
-                    </a>
-                    <a href="/admin/settings" class="bg-green-600 text-white rounded-lg p-4 text-center hover:bg-green-700 transition">
-                        <i class="fas fa-cog text-2xl mb-2"></i>
-                        <p>Paramètres</p>
-                    </a>
+                    <!-- Quick Actions -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-xl font-semibold mb-6">Actions rapides</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <button onclick="showAddProductModal()" class="bg-purple-600 text-white rounded-lg p-4 text-center hover:bg-purple-700 transition">
+                                <i class="fas fa-plus text-2xl mb-2"></i>
+                                <p>Ajouter un produit</p>
+                            </button>
+                            <button onclick="loadOrders()" class="bg-blue-600 text-white rounded-lg p-4 text-center hover:bg-blue-700 transition">
+                                <i class="fas fa-eye text-2xl mb-2"></i>
+                                <p>Voir les commandes</p>
+                            </button>
+                            <button onclick="loadSettings()" class="bg-green-600 text-white rounded-lg p-4 text-center hover:bg-green-700 transition">
+                                <i class="fas fa-cog text-2xl mb-2"></i>
+                                <p>Paramètres</p>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        const API_URL = window.location.origin + '/api';
+    <!-- Modal pour ajouter/modifier produit -->
+    <div id="productModal" class="modal">
+        <div class="modal-content">
+            <span class="close float-right text-2xl cursor-pointer" onclick="closeModal()">&times;</span>
+            <h2 class="text-2xl font-bold mb-6" id="modal-title">Ajouter un produit</h2>
+            <form id="productForm" onsubmit="saveProduct(event)">
+                <input type="hidden" id="productId">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nom du produit *</label>
+                        <input type="text" id="productName" required class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Prix (€) *</label>
+                        <input type="number" id="productPrice" step="0.01" required class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                    
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <textarea id="productDescription" rows="3" class="w-full px-4 py-2 border rounded-lg"></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Catégorie</label>
+                        <select id="productCategory" class="w-full px-4 py-2 border rounded-lg">
+                            <option value="">Sélectionner</option>
+                            <option value="homme">Homme</option>
+                            <option value="femme">Femme</option>
+                            <option value="unisexe">Unisexe</option>
+                            <option value="luxe">Luxe</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Stock</label>
+                        <input type="number" id="productStock" class="w-full px-4 py-2 border rounded-lg" value="0">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Image</label>
+                        <input type="file" id="productImage" accept="image/*" class="w-full px-4 py-2">
+                        <div id="imagePreview" class="mt-2"></div>
+                    </div>
+                    
+                    <div class="flex items-center mt-4">
+                        <input type="checkbox" id="productFeatured" class="h-4 w-4">
+                        <label class="ml-2 text-sm text-gray-700">Mettre en vedette</label>
+                    </div>
+                </div>
+                
+                <div class="mt-8 flex justify-end space-x-4">
+                    <button type="button" onclick="closeModal()" class="px-6 py-2 border rounded-lg">Annuler</button>
+                    <button type="submit" class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                        Enregistrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
+    <script>
+        const API_URL = window.location.origin;
+        let currentView = 'dashboard';
+        let products = [];
+
+        // Charger les statistiques du dashboard
         async function loadDashboardStats() {
             try {
-                // Charger les statistiques
-                const productsRes = await fetch(`${API_URL}/products`);
-                const products = await productsRes.json();
+                const productsRes = await fetch(`${API_URL}/api/products`);
+                products = await productsRes.json();
                 
                 document.getElementById('products-count').textContent = products.length;
                 document.getElementById('featured-count').textContent = products.filter(p => p.featured).length;
 
-                // Charger les produits récents
+                // Afficher les 5 produits les plus récents
                 const recentProducts = products.slice(0, 5);
                 const tbody = document.getElementById('recent-products-body');
                 tbody.innerHTML = recentProducts.map(product => `
@@ -157,6 +231,7 @@
                                 </div>
                                 <div class="ml-4">
                                     <div class="text-sm font-medium text-gray-900">${product.name}</div>
+                                    <div class="text-sm text-gray-500">${product.category || 'Non catégorisé'}</div>
                                 </div>
                             </div>
                         </td>
@@ -171,28 +246,399 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             ${new Date(product.created_at).toLocaleDateString('fr-FR')}
                         </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button onclick="editProduct(${product.id})" class="text-blue-600 hover:text-blue-900 mr-3">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="deleteProduct(${product.id})" class="text-red-600 hover:text-red-900">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
                     </tr>
                 `).join('');
 
             } catch (error) {
                 console.error('Erreur de chargement:', error);
+                showError('Erreur de chargement des données');
             }
         }
 
+        // Charger la vue produits
+        async function loadProducts() {
+            currentView = 'products';
+            document.getElementById('page-title').textContent = 'Gestion des produits';
+            
+            try {
+                const response = await fetch(`${API_URL}/api/products`);
+                products = await response.json();
+                
+                const content = `
+                    <div class="mb-8">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-2xl font-bold">Produits (${products.length})</h3>
+                            <button onclick="showAddProductModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
+                                <i class="fas fa-plus mr-2"></i>Ajouter un produit
+                            </button>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow overflow-hidden">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    ${products.length === 0 ? `
+                                        <tr>
+                                            <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                                                <i class="fas fa-cube text-4xl mb-4 text-gray-300"></i>
+                                                <p class="text-lg">Aucun produit</p>
+                                                <p class="text-sm mt-2">Commencez par ajouter votre premier produit</p>
+                                                <button onclick="showAddProductModal()" class="mt-4 bg-purple-600 text-white px-4 py-2 rounded-lg">
+                                                    Ajouter un produit
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ` : products.map(product => `
+                                        <tr>
+                                            <td class="px-6 py-4">
+                                                <div class="flex items-center">
+                                                    <div class="flex-shrink-0 h-12 w-12">
+                                                        <img class="h-12 w-12 rounded object-cover" 
+                                                             src="${product.image || 'https://via.placeholder.com/150'}" 
+                                                             alt="${product.name}">
+                                                    </div>
+                                                    <div class="ml-4">
+                                                        <div class="text-sm font-medium text-gray-900">${product.name}</div>
+                                                        <div class="text-sm text-gray-500 truncate max-w-xs">${product.description || 'Pas de description'}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm text-gray-900 font-bold">${product.price}€</div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                    ${product.category || 'Non catégorisé'}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${product.stock > 10 ? 'bg-green-100 text-green-800' : product.stock > 0 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">
+                                                    ${product.stock} unités
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${product.featured ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}">
+                                                    ${product.featured ? 'En vedette' : 'Standard'}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button onclick="editProduct(${product.id})" class="text-blue-600 hover:text-blue-900 mr-3" title="Modifier">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button onclick="deleteProduct(${product.id})" class="text-red-600 hover:text-red-900" title="Supprimer">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('content-area').innerHTML = content;
+                
+            } catch (error) {
+                console.error('Erreur:', error);
+                document.getElementById('content-area').innerHTML = `
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+                        <div class="text-red-800">
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            Erreur de chargement des produits. Veuillez réessayer.
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        // Charger la vue commandes
+        function loadOrders() {
+            currentView = 'orders';
+            document.getElementById('page-title').textContent = 'Commandes';
+            
+            const content = `
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-xl font-semibold mb-6">Commandes</h3>
+                    <div class="text-center py-12 text-gray-500">
+                        <i class="fas fa-shopping-cart text-4xl mb-4 text-gray-300"></i>
+                        <p class="text-lg">Aucune commande pour le moment</p>
+                        <p class="text-sm mt-2">Les commandes apparaîtront ici lorsque les clients passeront commande</p>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('content-area').innerHTML = content;
+        }
+
+        // Charger la vue paramètres
+        async function loadSettings() {
+            currentView = 'settings';
+            document.getElementById('page-title').textContent = 'Paramètres';
+            
+            const content = `
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-xl font-semibold mb-6">Paramètres du compte</h3>
+                    
+                    <div class="mb-8">
+                        <h4 class="text-lg font-medium mb-4">Changer le mot de passe</h4>
+                        <form onsubmit="changePassword(event)" class="space-y-4 max-w-md">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Mot de passe actuel</label>
+                                <input type="password" id="currentPassword" required class="w-full px-4 py-2 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Nouveau mot de passe</label>
+                                <input type="password" id="newPassword" required class="w-full px-4 py-2 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Confirmer le nouveau mot de passe</label>
+                                <input type="password" id="confirmPassword" required class="w-full px-4 py-2 border rounded-lg">
+                            </div>
+                            <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700">
+                                Changer le mot de passe
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <div class="border-t pt-6">
+                        <h4 class="text-lg font-medium mb-4">Informations du compte</h4>
+                        <div class="space-y-2">
+                            <p><strong>Nom d'utilisateur:</strong> <%= user.username %></p>
+                            <p><strong>Email:</strong> <%= user.email || 'Non défini' %></p>
+                            <p><strong>Rôle:</strong> Administrateur</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('content-area').innerHTML = content;
+        }
+
+        // Modal pour ajouter/modifier produit
+        function showAddProductModal() {
+            document.getElementById('modal-title').textContent = 'Ajouter un produit';
+            document.getElementById('productForm').reset();
+            document.getElementById('productId').value = '';
+            document.getElementById('imagePreview').innerHTML = '';
+            document.getElementById('productModal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('productModal').style.display = 'none';
+        }
+
+        // Éditer un produit
+        async function editProduct(id) {
+            const product = products.find(p => p.id == id);
+            if (!product) return;
+            
+            document.getElementById('modal-title').textContent = 'Modifier le produit';
+            document.getElementById('productId').value = product.id;
+            document.getElementById('productName').value = product.name;
+            document.getElementById('productPrice').value = product.price;
+            document.getElementById('productDescription').value = product.description || '';
+            document.getElementById('productCategory').value = product.category || '';
+            document.getElementById('productStock').value = product.stock || 0;
+            document.getElementById('productFeatured').checked = product.featured == 1;
+            
+            if (product.image) {
+                document.getElementById('imagePreview').innerHTML = `
+                    <img src="${product.image}" class="h-20 w-20 object-cover rounded">
+                    <p class="text-xs text-gray-500 mt-1">Image actuelle</p>
+                `;
+            }
+            
+            document.getElementById('productModal').style.display = 'block';
+        }
+
+        // Sauvegarder un produit
+        async function saveProduct(event) {
+            event.preventDefault();
+            
+            const formData = new FormData();
+            formData.append('name', document.getElementById('productName').value);
+            formData.append('price', document.getElementById('productPrice').value);
+            formData.append('description', document.getElementById('productDescription').value);
+            formData.append('category', document.getElementById('productCategory').value);
+            formData.append('stock', document.getElementById('productStock').value);
+            formData.append('featured', document.getElementById('productFeatured').checked);
+            
+            const imageFile = document.getElementById('productImage').files[0];
+            if (imageFile) {
+                formData.append('image', imageFile);
+            }
+            
+            const productId = document.getElementById('productId').value;
+            const method = productId ? 'PUT' : 'POST';
+            const url = productId ? `${API_URL}/api/products/${productId}` : `${API_URL}/api/products`;
+            
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    body: formData,
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    closeModal();
+                    showSuccess(productId ? 'Produit mis à jour' : 'Produit ajouté');
+                    
+                    // Recharger la vue actuelle
+                    if (currentView === 'products') {
+                        loadProducts();
+                    } else {
+                        loadDashboardStats();
+                    }
+                } else {
+                    const error = await response.json();
+                    showError(error.error || 'Erreur lors de la sauvegarde');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                showError('Erreur de connexion');
+            }
+        }
+
+        // Supprimer un produit
+        async function deleteProduct(id) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/api/products/${id}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    showSuccess('Produit supprimé');
+                    
+                    // Recharger la vue actuelle
+                    if (currentView === 'products') {
+                        loadProducts();
+                    } else {
+                        loadDashboardStats();
+                    }
+                } else {
+                    const error = await response.json();
+                    showError(error.error || 'Erreur lors de la suppression');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                showError('Erreur de connexion');
+            }
+        }
+
+        // Changer le mot de passe
+        async function changePassword(event) {
+            event.preventDefault();
+            
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (newPassword !== confirmPassword) {
+                showError('Les mots de passe ne correspondent pas');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/api/auth/change-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        currentPassword,
+                        newPassword
+                    })
+                });
+                
+                if (response.ok) {
+                    showSuccess('Mot de passe changé avec succès');
+                    document.getElementById('currentPassword').value = '';
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('confirmPassword').value = '';
+                } else {
+                    const error = await response.json();
+                    showError(error.error || 'Erreur lors du changement de mot de passe');
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                showError('Erreur de connexion');
+            }
+        }
+
+        // Déconnexion
         async function logout() {
             try {
-                const response = await fetch(`${API_URL}/auth/logout`, {
+                await fetch(`${API_URL}/api/auth/logout`, {
                     method: 'POST',
                     credentials: 'include'
                 });
                 window.location.href = '/admin/login';
             } catch (error) {
                 console.error('Erreur de déconnexion:', error);
+                window.location.href = '/admin/login';
             }
         }
 
-        // Charger les données au démarrage
-        document.addEventListener('DOMContentLoaded', loadDashboardStats);
+        // Notifications
+        function showSuccess(message) {
+            showNotification(message, 'green');
+        }
+
+        function showError(message) {
+            showNotification(message, 'red');
+        }
+
+        function showNotification(message, color) {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg text-white z-50 ${color === 'green' ? 'bg-green-500' : 'bg-red-500'}`;
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas fa-${color === 'green' ? 'check' : 'exclamation'} mr-2"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboardStats();
+            
+            // Fermer le modal en cliquant en dehors
+            window.onclick = function(event) {
+                const modal = document.getElementById('productModal');
+                if (event.target === modal) {
+                    closeModal();
+                }
+            };
+        });
     </script>
 </body>
 </html>
