@@ -256,10 +256,7 @@ app.get('/admin/simple-login', (req, res) => {
                 
                 <button class="login-btn" onclick="login()">Se connecter</button>
                 
-                <div class="loader" id="loader">
-                    <div class="spinner"></div>
-                    <span>Connexion en cours...</span>
-                </div>
+                <div class="loader" id="loader"></div>
                 
                 <div class="error" id="error"></div>
                 
@@ -281,6 +278,7 @@ app.get('/admin/simple-login', (req, res) => {
                 // Reset
                 errorDiv.textContent = '';
                 loginBtn.disabled = true;
+                loader.innerHTML = '<div class="spinner"></div><span>Connexion en cours...</span>';
                 loader.style.display = 'block';
                 
                 try {
@@ -326,13 +324,32 @@ app.get('/admin/simple-login', (req, res) => {
                     login();
                 }
             });
-            
-            // Auto-login pour testing (optionnel)
-            // setTimeout(login, 1000);
             </script>
         </body>
         </html>
     `);
+});
+
+// Routes pour les vues admin
+app.get('/admin/products', (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/admin/login');
+    }
+    res.redirect('/admin');
+});
+
+app.get('/admin/orders', (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/admin/login');
+    }
+    res.redirect('/admin');
+});
+
+app.get('/admin/settings', (req, res) => {
+    if (!req.session.user) {
+        return res.redirect('/admin/login');
+    }
+    res.redirect('/admin');
 });
 
 // Route admin avec fallback GET parameters
