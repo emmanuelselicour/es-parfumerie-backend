@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const session = require('express-session');
 const { initializeDatabase } = require('./database');
 
@@ -12,23 +13,26 @@ const authRouter = require('./routes/auth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Créer le dossier uploads s'il n'existe pas
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('✅ Dossier uploads créé');
+}
+
 // Middleware CORS
 const allowedOrigins = [
     'https://emmanuelselicour.github.io',
     'http://localhost:8000', 
     'https://es-parfumerie-api.onrender.com',
     'http://localhost:3000',
-    'http://localhost:5500',
-    'https://es-parfumerie-api.onrender.com',
-    'https://admin.es-parfumerie-api.onrender.com'
+    'http://localhost:5500'
 ];
 
 app.use(cors({
     origin: function (origin, callback) {
-        // Autoriser les requêtes sans origin (comme les apps mobiles ou curl)
         if (!origin) return callback(null, true);
-        
-        if (allowedOrigins.indexOf(origin) !== -1) {
+        if (allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
             console.log('CORS bloqué pour origin:', origin);
@@ -40,7 +44,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With', 'Accept']
 }));
 
-// Headers CORS supplémentaires
+// Headers CORS
 app.use((req, res, next) => {
     const origin = req.headers.origin;
     if (allowedOrigins.includes(origin)) {
@@ -56,11 +60,12 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Augmenter la limite pour les uploads d'images
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Session middleware SIMPLIFIÉ
+// Session middleware
 app.use(session({
     name: 'esparfumerie.sid',
     secret: process.env.SESSION_SECRET || 'votre_secret_tres_long_et_securise_changez_moi_123456789',
@@ -68,23 +73,21 @@ app.use(session({
     saveUninitialized: true,
     cookie: {
         httpOnly: true,
-        secure: false, // false pour testing, mettez true en production avec HTTPS
+        secure: false,
         sameSite: 'lax',
-        maxAge: 24 * 60 * 60 * 1000, // 24 heures
+        maxAge: 24 * 60 * 60 * 1000,
         path: '/'
     },
     rolling: true
 }));
 
-// Middleware de logging
+// Logging middleware
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    console.log('Session ID:', req.sessionID);
-    console.log('Session data:', req.session);
     next();
 });
 
-// Set view engine pour le panel admin
+// Set view engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -92,17 +95,14 @@ app.set('views', path.join(__dirname, 'views'));
 app.use('/api/products', productsRouter);
 app.use('/api/auth', authRouter);
 
-// ROUTE DE LOGIN DIRECT (NOUVELLE)
+// Route de login direct
 app.post('/admin/direct-login', (req, res) => {
     const { username, password } = req.body;
-    
-    console.log('Direct login attempt:', { username, password });
     
     if (!username || !password) {
         return res.status(400).json({ error: 'Nom d\'utilisateur et mot de passe requis' });
     }
     
-    // Vérification simple
     if (username === 'admin' && password === 'admin123') {
         req.session.user = {
             id: 1,
@@ -110,8 +110,6 @@ app.post('/admin/direct-login', (req, res) => {
             email: 'admin@esparfumerie.com',
             role: 'admin'
         };
-        
-        console.log('Session créée:', req.session.user);
         
         return res.json({ 
             success: true, 
@@ -124,8 +122,12 @@ app.post('/admin/direct-login', (req, res) => {
     res.status(401).json({ error: 'Identifiants incorrects' });
 });
 
-// ROUTE LOGIN SIMPLE (HTML)
+// Route login simple
 app.get('/admin/simple-login', (req, res) => {
+    if (req.session.user) {
+        return res.redirect('/admin');
+    }
+    
     res.send(`
         <!DOCTYPE html>
         <html>
@@ -150,18 +152,18 @@ app.get('/admin/simple-login', (req, res) => {
                     width: 100%;
                     max-width: 400px;
                 }
-                h1 {
-                    color: #333;
-                    text-align: center;
-                    margin-bottom: 30px;
-                    font-size: 28px;
-                }
                 .logo {
                     text-align: center;
                     color: #8a2be2;
                     font-size: 24px;
                     font-weight: bold;
                     margin-bottom: 20px;
+                }
+                h1 {
+                    color: #333;
+                    text-align: center;
+                    margin-bottom: 30px;
+                    font-size: 28px;
                 }
                 .input-group {
                     margin-bottom: 20px;
@@ -200,9 +202,6 @@ app.get('/admin/simple-login', (req, res) => {
                     background: #7b1fa2;
                     transform: translateY(-2px);
                 }
-                .login-btn:active {
-                    transform: translateY(0);
-                }
                 .error {
                     color: #ff4757;
                     text-align: center;
@@ -218,24 +217,6 @@ app.get('/admin/simple-login', (req, res) => {
                     margin-top: 20px;
                     font-size: 14px;
                     text-align: center;
-                }
-                .loader {
-                    display: none;
-                    text-align: center;
-                    margin-top: 10px;
-                }
-                .spinner {
-                    border: 3px solid #f3f3f3;
-                    border-top: 3px solid #8a2be2;
-                    border-radius: 50%;
-                    width: 20px;
-                    height: 20px;
-                    animation: spin 1s linear infinite;
-                    display: inline-block;
-                }
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
                 }
             </style>
         </head>
@@ -256,8 +237,6 @@ app.get('/admin/simple-login', (req, res) => {
                 
                 <button class="login-btn" onclick="login()">Se connecter</button>
                 
-                <div class="loader" id="loader"></div>
-                
                 <div class="error" id="error"></div>
                 
                 <div class="info">
@@ -272,17 +251,13 @@ app.get('/admin/simple-login', (req, res) => {
                 const username = document.getElementById('username').value;
                 const password = document.getElementById('password').value;
                 const errorDiv = document.getElementById('error');
-                const loader = document.getElementById('loader');
                 const loginBtn = document.querySelector('.login-btn');
                 
-                // Reset
                 errorDiv.textContent = '';
                 loginBtn.disabled = true;
-                loader.innerHTML = '<div class="spinner"></div><span>Connexion en cours...</span>';
-                loader.style.display = 'block';
+                loginBtn.textContent = 'Connexion...';
                 
                 try {
-                    // Essayer la connexion directe
                     const response = await fetch('/admin/direct-login', {
                         method: 'POST',
                         headers: {
@@ -295,34 +270,23 @@ app.get('/admin/simple-login', (req, res) => {
                     const data = await response.json();
                     
                     if (response.ok && data.success) {
-                        console.log('Login réussi:', data);
-                        // Attendre un peu pour que la session soit sauvegardée
                         setTimeout(() => {
                             window.location.href = '/admin';
                         }, 500);
                     } else {
                         errorDiv.textContent = data.error || 'Identifiants incorrects';
                         loginBtn.disabled = false;
-                        loader.style.display = 'none';
+                        loginBtn.textContent = 'Se connecter';
                     }
                 } catch (error) {
-                    console.error('Erreur de connexion:', error);
-                    errorDiv.textContent = 'Erreur de connexion au serveur. Essayez de rafraîchir la page.';
+                    errorDiv.textContent = 'Erreur de connexion au serveur';
                     loginBtn.disabled = false;
-                    loader.style.display = 'none';
-                    
-                    // Fallback: essayer avec les paramètres URL
-                    setTimeout(() => {
-                        window.location.href = '/admin?username=' + encodeURIComponent(username) + '&password=' + encodeURIComponent(password);
-                    }, 2000);
+                    loginBtn.textContent = 'Se connecter';
                 }
             }
             
-            // Permettre Enter pour se connecter
             document.getElementById('password').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    login();
-                }
+                if (e.key === 'Enter') login();
             });
             </script>
         </body>
@@ -330,57 +294,31 @@ app.get('/admin/simple-login', (req, res) => {
     `);
 });
 
-// Routes pour les vues admin
+// Routes admin
 app.get('/admin/products', (req, res) => {
-    if (!req.session.user) {
-        return res.redirect('/admin/login');
-    }
+    if (!req.session.user) return res.redirect('/admin/login');
     res.redirect('/admin');
 });
 
 app.get('/admin/orders', (req, res) => {
-    if (!req.session.user) {
-        return res.redirect('/admin/login');
-    }
+    if (!req.session.user) return res.redirect('/admin/login');
     res.redirect('/admin');
 });
 
 app.get('/admin/settings', (req, res) => {
-    if (!req.session.user) {
-        return res.redirect('/admin/login');
-    }
+    if (!req.session.user) return res.redirect('/admin/login');
     res.redirect('/admin');
 });
 
-// Route admin avec fallback GET parameters
+// Route admin principale
 app.get('/admin', (req, res) => {
-    console.log('=== ADMIN ACCESS ===');
-    console.log('Session:', req.session.user);
-    console.log('Query params:', req.query);
-    
-    // Fallback: accepter login via paramètres GET (pour debug)
-    if (!req.session.user && req.query.username && req.query.password) {
-        if (req.query.username === 'admin' && req.query.password === 'admin123') {
-            req.session.user = {
-                id: 1,
-                username: 'admin',
-                email: 'admin@esparfumerie.com',
-                role: 'admin'
-            };
-            console.log('User set via query params');
-        }
-    }
-    
     if (!req.session.user) {
-        console.log('No user session, redirecting to login');
         return res.redirect('/admin/simple-login');
     }
-    
-    console.log('Rendering dashboard for:', req.session.user.username);
     res.render('dashboard', { user: req.session.user });
 });
 
-// Route login originale (conservée pour compatibilité)
+// Route login originale
 app.get('/admin/login', (req, res) => {
     if (req.session.user) {
         return res.redirect('/admin');
@@ -388,38 +326,22 @@ app.get('/admin/login', (req, res) => {
     res.redirect('/admin/simple-login');
 });
 
-// Route de débug
+// Routes utilitaires
 app.get('/debug', (req, res) => {
     res.json({
-        session: {
-            id: req.sessionID,
-            user: req.session.user,
-            cookie: req.session.cookie
-        },
-        headers: {
-            host: req.headers.host,
-            origin: req.headers.origin,
-            cookie: req.headers.cookie
-        },
-        app: {
-            env: process.env.NODE_ENV,
-            sessionSecretSet: !!process.env.SESSION_SECRET,
-            nodeEnv: process.env.NODE_ENV
-        },
-        timestamp: new Date().toISOString()
+        session: req.session.user ? 'User logged in' : 'No user',
+        uploadsDir: fs.existsSync(uploadsDir) ? 'Exists' : 'Missing',
+        env: process.env.NODE_ENV
     });
 });
 
-// Route de statut de session
 app.get('/session-status', (req, res) => {
     res.json({
         loggedIn: !!req.session.user,
-        user: req.session.user,
-        sessionId: req.sessionID
+        user: req.session.user
     });
 });
 
-// Route pour forcer le login (debug)
 app.get('/force-login', (req, res) => {
     req.session.user = {
         id: 1,
@@ -430,14 +352,13 @@ app.get('/force-login', (req, res) => {
     res.redirect('/admin');
 });
 
-// Route pour clear session
 app.get('/logout', (req, res) => {
     req.session.destroy();
     res.redirect('/admin/simple-login');
 });
 
-// Route pour servir les images uploadées
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Servir les images uploadées
+app.use('/uploads', express.static(uploadsDir));
 
 // Route de santé
 app.get('/health', (req, res) => {
@@ -445,8 +366,7 @@ app.get('/health', (req, res) => {
         status: 'OK', 
         timestamp: new Date().toISOString(),
         sessionActive: !!req.session.user,
-        environment: process.env.NODE_ENV,
-        memoryUsage: process.memoryUsage()
+        environment: process.env.NODE_ENV
     });
 });
 
@@ -460,26 +380,8 @@ app.get('/', (req, res) => {
             products: '/api/products',
             auth: '/api/auth'
         },
-        debug: '/debug',
-        sessionStatus: '/session-status'
+        health: '/health'
     });
-});
-
-// Route de test de connexion simple
-app.get('/test-auth', (req, res) => {
-    if (req.session.user) {
-        res.json({ 
-            authenticated: true, 
-            user: req.session.user,
-            sessionId: req.sessionID 
-        });
-    } else {
-        res.json({ 
-            authenticated: false,
-            message: 'Non authentifié',
-            loginUrl: '/admin/simple-login'
-        });
-    }
 });
 
 // Gestion des erreurs 404
@@ -489,8 +391,7 @@ app.use((req, res) => {
         availableRoutes: {
             admin: '/admin/simple-login',
             api: '/api/products',
-            health: '/health',
-            debug: '/debug'
+            health: '/health'
         }
     });
 });
@@ -500,12 +401,11 @@ app.use((err, req, res, next) => {
     console.error('❌ Erreur globale:', err);
     res.status(500).json({ 
         error: 'Erreur interne du serveur',
-        message: err.message,
-        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        message: err.message
     });
 });
 
-// Initialiser la base de données et démarrer le serveur
+// Initialiser et démarrer
 initializeDatabase().then(() => {
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`
@@ -519,14 +419,9 @@ initializeDatabase().then(() => {
         ║                                                      ║
         ║ 👑 Panel Admin:    /admin/simple-login               ║
         ║ 📦 API Produits:   /api/products                     ║
-        ║ 🔐 Test Auth:      /test-auth                        ║
         ║ 🩺 Santé:          /health                           ║
-        ║ 🐛 Debug:          /debug                            ║
         ║                                                      ║
-        ║ 🔑 Identifiants par défaut:                          ║
-        ║    Username: admin                                   ║
-        ║    Password: admin123                                ║
-        ║                                                      ║
+        ║ 🔑 Identifiants: admin / admin123                    ║
         ╚══════════════════════════════════════════════════════╝
         `);
     });
