@@ -87,6 +87,23 @@ app.use((req, res, next) => {
     next();
 });
 
+
+
+
+// ... après session middleware ...
+
+// Middleware pour ajouter l'URL de base aux images
+app.use((req, res, next) => {
+    // Stocker l'URL de base pour l'utiliser dans les routes
+    req.baseUrl = `${req.protocol}://${req.get('host')}`;
+    next();
+});
+
+// ... avant les routes ...
+
+
+
+
 // Set view engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
