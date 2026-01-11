@@ -12,7 +12,6 @@ router.post('/login', (req, res) => {
         return res.status(400).json({ error: 'Nom d\'utilisateur et mot de passe requis' });
     }
 
-    // Rechercher l'admin
     db.get('SELECT * FROM admins WHERE username = ?', [username], async (err, admin) => {
         if (err) {
             console.error('Erreur SQL:', err);
@@ -23,27 +22,30 @@ router.post('/login', (req, res) => {
             return res.status(401).json({ error: 'Identifiants incorrects' });
         }
 
-        // Vérifier le mot de passe
-        const validPassword = await bcrypt.compare(password, admin.password);
-        if (!validPassword) {
-            return res.status(401).json({ error: 'Identifiants incorrects' });
-        }
+        try {
+            const validPassword = await bcrypt.compare(password, admin.password);
+            if (!validPassword) {
+                return res.status(401).json({ error: 'Identifiants incorrects' });
+            }
 
-        // Créer la session
-        req.session.user = {
-            id: admin.id,
-            username: admin.username,
-            email: admin.email
-        };
-
-        res.json({
-            message: 'Connexion réussie',
-            user: {
+            req.session.user = {
                 id: admin.id,
                 username: admin.username,
                 email: admin.email
-            }
-        });
+            };
+
+            res.json({
+                message: 'Connexion réussie',
+                user: {
+                    id: admin.id,
+                    username: admin.username,
+                    email: admin.email
+                }
+            });
+        } catch (compareError) {
+            console.error('Erreur comparaison mot de passe:', compareError);
+            res.status(500).json({ error: 'Erreur interne du serveur' });
+        }
     });
 });
 
@@ -78,32 +80,37 @@ router.post('/change-password', async (req, res) => {
         return res.status(400).json({ error: 'Tous les champs sont requis' });
     }
 
-    // Récupérer l'admin
+    if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'Le nouveau mot de passe doit faire au moins 6 caractères' });
+    }
+
     db.get('SELECT * FROM admins WHERE id = ?', [req.session.user.id], async (err, admin) => {
         if (err || !admin) {
             return res.status(500).json({ error: 'Erreur de base de données' });
         }
 
-        // Vérifier l'ancien mot de passe
-        const validPassword = await bcrypt.compare(currentPassword, admin.password);
-        if (!validPassword) {
-            return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
-        }
-
-        // Hasher le nouveau mot de passe
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-        // Mettre à jour le mot de passe
-        db.run(
-            'UPDATE admins SET password = ? WHERE id = ?',
-            [hashedPassword, admin.id],
-            function(err) {
-                if (err) {
-                    return res.status(500).json({ error: 'Erreur de mise à jour du mot de passe' });
-                }
-                res.json({ message: 'Mot de passe changé avec succès' });
+        try {
+            const validPassword = await bcrypt.compare(currentPassword, admin.password);
+            if (!validPassword) {
+                return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
             }
-        );
+
+            const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+            db.run(
+                'UPDATE admins SET password = ? WHERE id = ?',
+                [hashedPassword, admin.id],
+                function(err) {
+                    if (err) {
+                        return res.status(500).json({ error: 'Erreur de mise à jour du mot de passe' });
+                    }
+                    res.json({ message: 'Mot de passe changé avec succès' });
+                }
+            );
+        } catch (error) {
+            console.error('Erreur changement mot de passe:', error);
+            res.status(500).json({ error: 'Erreur interne du serveur' });
+        }
     });
 });
 
