@@ -722,6 +722,81 @@
                 }
             };
         });
+
+// AJOUTEZ CES FONCTIONS À VOTRE DASHBOARD.EJS
+
+// Rafraîchissement automatique de session
+function startSessionRefresh() {
+    // Rafraîchir toutes les 2 minutes
+    setInterval(async () => {
+        try {
+            const response = await fetch(`${API_URL}/api/auth/refresh`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                console.log('✅ Session rafraîchie:', new Date().toLocaleTimeString());
+            } else if (data.redirect) {
+                // Session expirée, rediriger vers login
+                console.log('⚠️ Session expirée, redirection...');
+                window.location.href = data.redirect;
+            }
+        } catch (error) {
+            console.log('⚠️ Échec rafraîchissement session');
+        }
+    }, 2 * 60 * 1000); // 2 minutes
+}
+
+// Keep-alive pour empêcher Render de dormir
+function startKeepAlive() {
+    // Appeler keep-alive toutes les 5 minutes
+    setInterval(async () => {
+        try {
+            await fetch(`${API_URL}/keep-alive`);
+            console.log('🔄 Keep-alive ping:', new Date().toLocaleTimeString());
+        } catch (error) {
+            console.log('⚠️ Keep-alive échoué');
+        }
+    }, 5 * 60 * 1000); // 5 minutes
+}
+
+// Vérifier la session au chargement
+async function checkSession() {
+    try {
+        const response = await fetch(`${API_URL}/api/auth/check`, {
+            credentials: 'include'
+        });
+        const data = await response.json();
+        
+        if (!data.authenticated && window.location.pathname !== '/admin/simple-login') {
+            console.log('Session perdue, redirection vers login');
+            window.location.href = '/admin/simple-login';
+        }
+    } catch (error) {
+        console.error('Erreur vérification session:', error);
+    }
+}
+
+// MODIFIEZ L'INITIALISATION dans dashboard.ejs :
+document.addEventListener('DOMContentLoaded', function() {
+    loadDashboardStats();
+    startSessionRefresh();
+    startKeepAlive();
+    checkSession();
+    
+    // Vérifier la session toutes les minutes
+    setInterval(checkSession, 60 * 1000);
+    
+    // Fermer le modal en cliquant en dehors
+    window.onclick = function(event) {
+        const modal = document.getElementById('productModal');
+        if (event.target === modal) {
+            closeModal();
+        }
+    };
+});
     </script>
 </body>
 </html>
