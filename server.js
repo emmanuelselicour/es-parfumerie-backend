@@ -13,12 +13,11 @@ const authRouter = require('./routes/auth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Créer le dossier uploads s'il n'existe pas
+// Créer les dossiers nécessaires
 const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-    console.log('✅ Dossier uploads créé');
-}
+const sessionsDir = path.join(__dirname, 'sessions');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+if (!fs.existsSync(sessionsDir)) fs.mkdirSync(sessionsDir, { recursive: true });
 
 // Middleware CORS
 const allowedOrigins = [
@@ -60,12 +59,12 @@ app.use((req, res, next) => {
     next();
 });
 
-// Augmenter la limite pour les uploads d'images
+// Augmenter la limite pour les uploads
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Session middleware
+// SESSION MIDDLEWARE - CORRIGÉ POUR LA PERSISTANCE
 app.use(session({
     name: 'esparfumerie.sid',
     secret: process.env.SESSION_SECRET || 'votre_secret_tres_long_et_securise_changez_moi_123456789',
@@ -75,34 +74,34 @@ app.use(session({
         httpOnly: true,
         secure: false,
         sameSite: 'lax',
-        maxAge: 24 * 60 * 60 * 1000,
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 JOURS ! (au lieu de 24h)
         path: '/'
     },
-    rolling: true
+    rolling: true, // Renouvelle le cookie à chaque requête
+    // Utilise un store en mémoire simple mais avec plus de durée
+    store: new session.MemoryStore({
+        checkPeriod: 86400000 // Nettoyage toutes les 24h
+    })
 }));
 
-// Logging middleware
+// Middleware pour logger les sessions
 app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    req.session.touch(); // Touche la session à chaque requête
     next();
 });
 
-
-
-
-// ... après session middleware ...
-
-// Middleware pour ajouter l'URL de base aux images
+// Middleware pour ajouter l'URL de base
 app.use((req, res, next) => {
-    // Stocker l'URL de base pour l'utiliser dans les routes
     req.baseUrl = `${req.protocol}://${req.get('host')}`;
     next();
 });
 
-// ... avant les routes ...
-
-
-
+// Logging middleware
+app.use((req, res, next) => {
+    const now = new Date().toISOString();
+    console.log(`[${now}] ${req.method} ${req.url} - Session:`, req.sessionID ? 'Active' : 'No session');
+    next();
+});
 
 // Set view engine
 app.set('view engine', 'ejs');
@@ -112,9 +111,11 @@ app.set('views', path.join(__dirname, 'views'));
 app.use('/api/products', productsRouter);
 app.use('/api/auth', authRouter);
 
-// Route de login direct
+// Route de login direct améliorée
 app.post('/admin/direct-login', (req, res) => {
     const { username, password } = req.body;
+    
+    console.log('Login attempt for user:', username);
     
     if (!username || !password) {
         return res.status(400).json({ error: 'Nom d\'utilisateur et mot de passe requis' });
@@ -125,18 +126,66 @@ app.post('/admin/direct-login', (req, res) => {
             id: 1,
             username: 'admin',
             email: 'admin@esparfumerie.com',
-            role: 'admin'
+            role: 'admin',
+            lastLogin: new Date().toISOString()
         };
         
-        return res.json({ 
-            success: true, 
-            redirect: '/admin',
-            message: 'Connexion réussie',
-            user: req.session.user
+        // Sauvegarder la session
+        req.session.save((err) => {
+            if (err) {
+                console.error('Session save error:', err);
+                return res.status(500).json({ error: 'Erreur de session' });
+            }
+            
+            console.log('User logged in, session saved:', req.sessionID);
+            
+            return res.json({ 
+                success: true, 
+                redirect: '/admin',
+                message: 'Connexion réussie',
+                user: req.session.user,
+                sessionId: req.sessionID
+            });
+        });
+    } else {
+        res.status(401).json({ error: 'Identifiants incorrects' });
+    }
+});
+
+// Route pour vérifier et rafraîchir la session
+app.post('/api/auth/refresh', (req, res) => {
+    if (req.session.user) {
+        // Rafraîchir la session
+        req.session.touch();
+        req.session.save((err) => {
+            if (err) {
+                console.error('Session refresh error:', err);
+                return res.status(500).json({ error: 'Erreur de session' });
+            }
+            res.json({ 
+                success: true, 
+                user: req.session.user,
+                message: 'Session rafraîchie',
+                timestamp: new Date().toISOString()
+            });
+        });
+    } else {
+        res.json({ 
+            success: false, 
+            message: 'Session expirée',
+            redirect: '/admin/login'
         });
     }
-    
-    res.status(401).json({ error: 'Identifiants incorrects' });
+});
+
+// Route keep-alive simple
+app.get('/keep-alive', (req, res) => {
+    res.json({ 
+        status: 'alive', 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        sessionActive: !!req.session.user
+    });
 });
 
 // Route login simple
@@ -219,6 +268,20 @@ app.get('/admin/simple-login', (req, res) => {
                     background: #7b1fa2;
                     transform: translateY(-2px);
                 }
+                .remember-me {
+                    display: flex;
+                    align-items: center;
+                    margin: 15px 0;
+                }
+                .remember-me input {
+                    width: auto;
+                    margin-right: 8px;
+                }
+                .remember-me label {
+                    margin: 0;
+                    color: #666;
+                    font-size: 14px;
+                }
                 .error {
                     color: #ff4757;
                     text-align: center;
@@ -252,6 +315,11 @@ app.get('/admin/simple-login', (req, res) => {
                     <input type="password" id="password" placeholder="Entrez votre mot de passe" value="admin123">
                 </div>
                 
+                <div class="remember-me">
+                    <input type="checkbox" id="remember" checked>
+                    <label for="remember">Rester connecté</label>
+                </div>
+                
                 <button class="login-btn" onclick="login()">Se connecter</button>
                 
                 <div class="error" id="error"></div>
@@ -267,6 +335,7 @@ app.get('/admin/simple-login', (req, res) => {
             async function login() {
                 const username = document.getElementById('username').value;
                 const password = document.getElementById('password').value;
+                const remember = document.getElementById('remember').checked;
                 const errorDiv = document.getElementById('error');
                 const loginBtn = document.querySelector('.login-btn');
                 
@@ -281,12 +350,17 @@ app.get('/admin/simple-login', (req, res) => {
                             'Content-Type': 'application/json',
                             'Accept': 'application/json'
                         },
-                        body: JSON.stringify({ username, password })
+                        body: JSON.stringify({ username, password, remember })
                     });
                     
                     const data = await response.json();
                     
                     if (response.ok && data.success) {
+                        console.log('Login réussi, session:', data.sessionId);
+                        
+                        // Démarrer le rafraîchissement automatique de session
+                        startSessionRefresh();
+                        
                         setTimeout(() => {
                             window.location.href = '/admin';
                         }, 500);
@@ -296,11 +370,32 @@ app.get('/admin/simple-login', (req, res) => {
                         loginBtn.textContent = 'Se connecter';
                     }
                 } catch (error) {
+                    console.error('Login error:', error);
                     errorDiv.textContent = 'Erreur de connexion au serveur';
                     loginBtn.disabled = false;
                     loginBtn.textContent = 'Se connecter';
                 }
             }
+            
+            // Rafraîchir la session toutes les 2 minutes
+            function startSessionRefresh() {
+                setInterval(async () => {
+                    try {
+                        await fetch('/api/auth/refresh', {
+                            method: 'POST',
+                            credentials: 'include'
+                        });
+                        console.log('Session refreshed at:', new Date().toLocaleTimeString());
+                    } catch (error) {
+                        console.log('Session refresh failed');
+                    }
+                }, 2 * 60 * 1000); // 2 minutes
+            }
+            
+            // Rafraîchissement automatique de la page keep-alive
+            setInterval(() => {
+                fetch('/keep-alive').catch(() => {});
+            }, 5 * 60 * 1000); // 5 minutes
             
             document.getElementById('password').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') login();
@@ -327,12 +422,18 @@ app.get('/admin/settings', (req, res) => {
     res.redirect('/admin');
 });
 
-// Route admin principale
+// Route admin principale avec vérification de session
 app.get('/admin', (req, res) => {
     if (!req.session.user) {
+        console.log('No session user, redirecting to login');
         return res.redirect('/admin/simple-login');
     }
-    res.render('dashboard', { user: req.session.user });
+    
+    console.log('Rendering dashboard for:', req.session.user.username);
+    res.render('dashboard', { 
+        user: req.session.user,
+        sessionId: req.sessionID 
+    });
 });
 
 // Route login originale
@@ -346,16 +447,25 @@ app.get('/admin/login', (req, res) => {
 // Routes utilitaires
 app.get('/debug', (req, res) => {
     res.json({
-        session: req.session.user ? 'User logged in' : 'No user',
-        uploadsDir: fs.existsSync(uploadsDir) ? 'Exists' : 'Missing',
-        env: process.env.NODE_ENV
+        session: {
+            id: req.sessionID,
+            user: req.session.user,
+            cookie: req.session.cookie
+        },
+        app: {
+            env: process.env.NODE_ENV,
+            uptime: process.uptime()
+        },
+        timestamp: new Date().toISOString()
     });
 });
 
 app.get('/session-status', (req, res) => {
     res.json({
         loggedIn: !!req.session.user,
-        user: req.session.user
+        user: req.session.user,
+        sessionId: req.sessionID,
+        sessionAge: req.session.cookie.maxAge
     });
 });
 
@@ -366,24 +476,34 @@ app.get('/force-login', (req, res) => {
         email: 'admin@esparfumerie.com',
         role: 'admin'
     };
-    res.redirect('/admin');
+    req.session.save(() => {
+        res.redirect('/admin');
+    });
 });
 
 app.get('/logout', (req, res) => {
-    req.session.destroy();
-    res.redirect('/admin/simple-login');
+    const sessionId = req.sessionID;
+    req.session.destroy((err) => {
+        if (err) {
+            console.error('Logout error:', err);
+        }
+        console.log('Session destroyed:', sessionId);
+        res.redirect('/admin/simple-login');
+    });
 });
 
 // Servir les images uploadées
 app.use('/uploads', express.static(uploadsDir));
 
-// Route de santé
+// Route de santé améliorée
 app.get('/health', (req, res) => {
     res.json({ 
         status: 'OK', 
         timestamp: new Date().toISOString(),
         sessionActive: !!req.session.user,
-        environment: process.env.NODE_ENV
+        environment: process.env.NODE_ENV,
+        uptime: process.uptime(),
+        memory: process.memoryUsage()
     });
 });
 
@@ -391,13 +511,15 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
     res.json({
         message: 'ES Parfumerie API',
-        version: '1.0.0',
+        version: '2.0.0',
+        status: 'running',
         adminPanel: '/admin/simple-login',
         apiDocs: {
             products: '/api/products',
-            auth: '/api/auth'
-        },
-        health: '/health'
+            auth: '/api/auth',
+            health: '/health',
+            keepAlive: '/keep-alive'
+        }
     });
 });
 
@@ -405,11 +527,7 @@ app.get('/', (req, res) => {
 app.use((req, res) => {
     res.status(404).json({ 
         error: 'Route non trouvée',
-        availableRoutes: {
-            admin: '/admin/simple-login',
-            api: '/api/products',
-            health: '/health'
-        }
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -418,7 +536,8 @@ app.use((err, req, res, next) => {
     console.error('❌ Erreur globale:', err);
     res.status(500).json({ 
         error: 'Erreur interne du serveur',
-        message: err.message
+        message: err.message,
+        timestamp: new Date().toISOString()
     });
 });
 
@@ -427,20 +546,28 @@ initializeDatabase().then(() => {
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`
         ╔══════════════════════════════════════════════════════╗
-        ║           ES PARFUMERIE API - DÉMARRÉE              ║
+        ║           ES PARFUMERIE API v2.0 - DÉMARRÉE         ║
         ╠══════════════════════════════════════════════════════╣
         ║ Port: ${PORT}                                         ║
         ║ Environnement: ${process.env.NODE_ENV || 'development'} ║
-        ║                                                      ║
-        ║ 📍 URLs importantes:                                 ║
-        ║                                                      ║
-        ║ 👑 Panel Admin:    /admin/simple-login               ║
-        ║ 📦 API Produits:   /api/products                     ║
-        ║ 🩺 Santé:          /health                           ║
-        ║                                                      ║
-        ║ 🔑 Identifiants: admin / admin123                    ║
+        ║ Session durée: 7 jours                              ║
+        ║                                                     ║
+        ║ 📍 URLs importantes:                                ║
+        ║                                                     ║
+        ║ 👑 Panel Admin:    /admin/simple-login              ║
+        ║ 📦 API Produits:   /api/products                    ║
+        ║ 🩺 Santé:          /health                          ║
+        ║ 🔄 Keep-alive:     /keep-alive                      ║
+        ║                                                     ║
+        ║ 🔑 Identifiants: admin / admin123                   ║
+        ║ ⚠️  Changez-les après première connexion            ║
         ╚══════════════════════════════════════════════════════╝
         `);
+        
+        // Démarrer un keep-alive interne
+        setInterval(() => {
+            fetch(`http://localhost:${PORT}/keep-alive`).catch(() => {});
+        }, 5 * 60 * 1000); // 5 minutes
     });
 }).catch(err => {
     console.error('❌ Erreur d\'initialisation:', err);
