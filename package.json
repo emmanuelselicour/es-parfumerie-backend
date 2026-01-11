@@ -18,3 +18,9 @@
     "ejs": "^3.1.9"
   }
 }
+{
+  "scripts": {
+    "start": "node server.js & node keep-alive.js",
+    "dev": "nodemon server.js"
+  }
+}
